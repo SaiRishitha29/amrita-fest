@@ -1,0 +1,83 @@
+name: PARIणाम 2026 CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Code Quality & Security Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Fast Linter (oxlint)
+        run: npm run lint
+
+      - name: Strict TypeScript Compilation Check
+        run: npx tsc -b
+
+  test:
+    name: Automated Unit & Concurrency Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Execute Security & Concurrency Verification Test Suite
+        run: node scripts/test_runner.cjs
+
+  build:
+    name: Production Release Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Production Assets
+        run: npm run build
+
+      - name: Verify Bundle Size & Artifact Integrity
+        run: |
+          ls -lh dist/assets
+          test -f dist/index.html
